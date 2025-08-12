@@ -525,6 +525,7 @@ def pptadr3(psrs, common_gp=None, crn=True, hd=False):
 
 if __name__ == "__main__":
 
+    models = pptadr3(psrs)
     logx = ds.makelogtransform_uniform(models.logL, ppta_prior)
     num_samples = 128
     loss = dsf.value_and_grad_ElboLoss(logx, num_samples=num_samples)
