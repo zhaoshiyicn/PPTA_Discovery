@@ -476,25 +476,6 @@ def makegp_ecorr_group(psr):
                 )
     return ecorrs
 
-pslmodels = [
-    likelihood.PulsarLikelihood([
-        psr.residuals,
-        signals.makenoise_measurement(psr, psr.noisedict, tnequad=True),
-        signals.makegp_ecorr(psr, psr.noisedict, selection=selection_freqband, name='ecorr_band'),
-        signals.makegp_ecorr(psr, psr.noisedict, selection=selection_uwl_only, name='ecorr_uwl'),
-        *makegp_ecorr_group(psr),
-        signals.makegp_timing(psr, svd=True),
-        sw_delay(psr, name='sw'),
-        *dmexp_delay(psr, name='dmexp'),
-        dm1yr_delay(psr, name='dm1yr'),
-        dmguassian_delay(psr, name='dmgauss'),
-    ])
-    for psr in psrs
-]
-
-# crn = ds.makecommongp_fourier(psrs, ds.makepowerlaw_crn(crn_comp), crn_comp, T=signals.getspan(psrs),
-#                                                            common=['crn_log10_A', 'crn_gamma'], name='red_noise')
-
 def signal_gp(psr, common_gp=None):
     gps = []
     gps += red_gp(psr)  
@@ -510,49 +491,37 @@ def signal_gp(psr, common_gp=None):
         gps += common_gp(psr)  
     return gps
 
-cgp = gps2commongp([matrix.CompoundGP(signal_gp(psr)) for psr in psrs])
+def pptadr3(psrs, common_gp=None, crn=True, hd=False):
+    pslmodels = [
+                likelihood.PulsarLikelihood([
+                    psr.residuals,
+                    signals.makenoise_measurement(psr, psr.noisedict, tnequad=True),
+                    signals.makegp_ecorr(psr, psr.noisedict, selection=selection_freqband, name='ecorr_band'),
+                    signals.makegp_ecorr(psr, psr.noisedict, selection=selection_uwl_only, name='ecorr_uwl'),
+                    *makegp_ecorr_group(psr),
+                    signals.makegp_timing(psr, svd=True),
+                    sw_delay(psr, name='sw'),
+                    *dmexp_delay(psr, name='dmexp'),
+                    dm1yr_delay(psr, name='dm1yr'),
+                    dmguassian_delay(psr, name='dmgauss'),
+                                            ])
+                                            for psr in psrs
+                ]
+    cgp = gps2commongp([matrix.CompoundGP(signal_gp(psr, common_gp=common_gp)) for psr in psrs])
+    if crn:
+        corr = ds.hd_orf if hd else ds.uncorrelated_orf
+        crn = signals.makeglobalgp_fourier(psrs, ds.powerlaw, corr, 
+                                            components=get_red_comps(psrs),
+                                            T=signals.getspan(psrs),
+                                            name='crn')
+    else:
+        crn = None
 
-crn = signals.makeglobalgp_fourier(psrs, ds.powerlaw, ds.uncorrelated_orf, 
-                                    components=get_red_comps(psrs),
-                                    T=signals.getspan(psrs),
-                                    name='crn')
-
-models = likelihood.ArrayLikelihood(pslmodels, 
-                                    commongp=cgp,
-                                    globalgp=crn
-                                    )
-
-# def pptadr3(psrs, common_gp=None, crn=True, hd=False):
-#     pslmodels = [
-#                 likelihood.PulsarLikelihood([
-#                     psr.residuals,
-#                     signals.makenoise_measurement(psr, psr.noisedict, tnequad=True),
-#                     signals.makegp_ecorr(psr, psr.noisedict, selection=selection_freqband, name='ecorr_band'),
-#                     signals.makegp_ecorr(psr, psr.noisedict, selection=selection_uwl_only, name='ecorr_uwl'),
-#                     *makegp_ecorr_group(psr),
-#                     signals.makegp_timing(psr, svd=True),
-#                     sw_delay(psr, name='sw'),
-#                     *dmexp_delay(psr, name='dmexp'),
-#                     dm1yr_delay(psr, name='dm1yr'),
-#                     dmguassian_delay(psr, name='dmgauss'),
-#                                             ])
-#                                             for psr in psrs
-#                 ]
-#     cgp = gps2commongp([matrix.CompoundGP(signal_gp(psr, common_gp=common_gp)) for psr in psrs])
-#     if crn:
-#         corr = ds.hd_orf if hd else ds.uncorrelated_orf
-#         crn = signals.makeglobalgp_fourier(psrs, ds.powerlaw, corr, 
-#                                             components=get_red_comps(psrs),
-#                                             T=signals.getspan(psrs),
-#                                             name='crn')
-#     else:
-#         crn = None
-
-#     models = likelihood.ArrayLikelihood(pslmodels, 
-#                                         commongp=cgp,
-#                                         globalgp=crn
-#                                         )
-#     return models
+    models = likelihood.ArrayLikelihood(pslmodels, 
+                                        commongp=cgp,
+                                        globalgp=crn
+                                        )
+    return models
 
 if __name__ == "__main__":
 
